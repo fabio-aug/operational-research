@@ -3,7 +3,7 @@ using DelimitedFiles
 using Printf
 using Dates
 
-caminho_pasta = "./"
+caminho_pasta = "./heuristicas/"
 arquivos = sort(filter(x -> isfile(joinpath(caminho_pasta, x)), readdir(caminho_pasta)))
 filter!(x -> x != "heuristicas.jl", arquivos)
 
@@ -36,13 +36,12 @@ function read_node_coord(num_vertices, file)
 end
 
 function print_resultado(start, custo)
-    println("Custo: $(round(custo, digits=3))")
     tempo = Dates.now() - start
     total_segundos = Millisecond(tempo).value / 1000
     horas = div(total_segundos, 3600)
     minutos = div(total_segundos % 3600, 60)
     segundos = total_segundos % 60
-    println("Tempo decorrido: $(horas)h $(minutos)m $(round(segundos, digits=3))s")
+    println("Custo: $(round(custo, digits=3)) | Tempo decorrido: $(horas)h $(minutos)m $(round(segundos, digits=3))s")
     println()
 end
 
@@ -51,11 +50,10 @@ function vizinho_mais_proximo(num_vertices, matriz)
     caminho = [1]
     nao_visitados = collect(2:num_vertices)
     custo = 0.0
-
-    minutos_break = 0
     inicio = 1
     index = inicio
-    while length(caminho) < num_vertices && minutos_break < 30
+
+    while length(caminho) < num_vertices
         menor_distancia = Inf
         indice = 0
         for idx in nao_visitados
@@ -68,8 +66,6 @@ function vizinho_mais_proximo(num_vertices, matriz)
         deleteat!(nao_visitados, findfirst(==(indice), nao_visitados))
         custo += menor_distancia
         index = indice
-        tempo = Dates.now() - start
-        minutos_break = floor(Int, (tempo % Dates.Hour(1)).value / Minute(1).value)
     end
 
     custo += matriz[index, inicio]
@@ -79,15 +75,6 @@ function vizinho_mais_proximo(num_vertices, matriz)
     print_resultado(start, custo)
 
     return caminho, custo
-end
-
-function calcula_custo(matriz_distancias, caminho)
-    custo = 0
-    for i in 1:length(caminho)-1
-        custo += matriz_distancias[caminho[i], caminho[i+1]]
-    end
-    custo += matriz_distancias[caminho[end], caminho[1]] # Retorna ao ponto inicial
-    return custo
 end
 
 function dois_opt(matriz_distancias, caminho_inicial, custo_inicial, is_first_improvement)
@@ -100,16 +87,16 @@ function dois_opt(matriz_distancias, caminho_inicial, custo_inicial, is_first_im
     if is_first_improvement
         while true
             melhorou = false
-    
+
             for i in 2:n-2
                 for j in i+1:n-1
                     novo_caminho = vcat(caminho_atual[1:i-1], reverse(caminho_atual[i:j]), caminho_atual[j+1:end])
-    
+
                     custo_removido = matriz_distancias[caminho_atual[i-1], caminho_atual[i]] + matriz_distancias[caminho_atual[j], caminho_atual[j+1]]
                     custo_adicionado = matriz_distancias[caminho_atual[i-1], caminho_atual[j]] + matriz_distancias[caminho_atual[i], caminho_atual[j+1]]
-    
+
                     novo_custo = custo_atual - custo_removido + custo_adicionado
-    
+
                     if novo_custo < custo_atual
                         caminho_atual = novo_caminho
                         custo_atual = novo_custo
@@ -121,7 +108,7 @@ function dois_opt(matriz_distancias, caminho_inicial, custo_inicial, is_first_im
                     break
                 end
             end
-    
+
             if !melhorou
                 break
             end
@@ -131,16 +118,16 @@ function dois_opt(matriz_distancias, caminho_inicial, custo_inicial, is_first_im
             melhorou = false
             melhor_caminho = caminho_atual
             melhor_custo = custo_atual
-    
+
             for i in 2:n-2
                 for j in i+1:n-1
                     novo_caminho = vcat(caminho_atual[1:i-1], reverse(caminho_atual[i:j]), caminho_atual[j+1:end])
-    
+
                     custo_removido = matriz_distancias[caminho_atual[i-1], caminho_atual[i]] + matriz_distancias[caminho_atual[j], caminho_atual[j+1]]
                     custo_adicionado = matriz_distancias[caminho_atual[i-1], caminho_atual[j]] + matriz_distancias[caminho_atual[i], caminho_atual[j+1]]
-    
+
                     novo_custo = custo_atual - custo_removido + custo_adicionado
-    
+
                     if novo_custo < melhor_custo
                         melhor_caminho = novo_caminho
                         melhor_custo = novo_custo
@@ -148,7 +135,7 @@ function dois_opt(matriz_distancias, caminho_inicial, custo_inicial, is_first_im
                     end
                 end
             end
-    
+
             if melhorou
                 caminho_atual = melhor_caminho
                 custo_atual = melhor_custo
@@ -159,10 +146,58 @@ function dois_opt(matriz_distancias, caminho_inicial, custo_inicial, is_first_im
     end
 
     if is_first_improvement
-        println("2-opt first_improvement: ")
+        println("2-OPT (First Improvement):")
     else
-        println("2-opt best_improvement: ")
+        println("2-OPT (Best Improvement):")
     end
+    print_resultado(start, custo_atual)
+end
+
+function swap(matriz_distancias, caminho_inicial, custo_inicial, is_first_improvement)
+    start = Dates.now()
+    n = length(caminho_inicial)
+
+    caminho_atual = caminho_inicial
+    custo_atual = custo_inicial
+
+    melhor_caminho = caminho_atual
+    melhor_custo = custo_atual
+    melhoria_encontrada = false
+
+    for i in 2:n-2
+        for j in i+1:n-1
+            novo_caminho = copy(caminho_atual)
+            novo_caminho[i:j] = reverse(caminho_atual[i:j])
+
+            custo_removido = matriz_distancias[caminho_atual[i-1], caminho_atual[i]] + matriz_distancias[caminho_atual[j], caminho_atual[j+1]]
+            custo_adicionado = matriz_distancias[novo_caminho[i-1], novo_caminho[i]] + matriz_distancias[novo_caminho[j], novo_caminho[j+1]]
+            novo_custo = custo_atual - custo_removido + custo_adicionado
+
+            if novo_custo < melhor_custo
+                melhor_caminho = novo_caminho
+                melhor_custo = novo_custo
+                melhoria_encontrada = true
+                if is_first_improvement
+                    break
+                end
+            end
+        end
+        if is_first_improvement && melhoria_encontrada
+            break
+        end
+    end
+
+    if melhoria_encontrada
+        custo_atual = melhor_custo
+        caminho_atual = melhor_caminho
+    end
+
+    if is_first_improvement
+        println("Swap (First Improvement):")
+    else
+        println("Swap (Best Improvement):")
+    end
+
     print_resultado(start, custo_atual)
 end
 
@@ -184,6 +219,8 @@ for arquivo in arquivos
 
     println("Arquivo: $(arquivo) ----------------------------------")
     caminho_inicial, custo_inicial = vizinho_mais_proximo(num_vertices, matriz_distancias)
+    swap(matriz_distancias, caminho_inicial, custo_inicial, true)
+    swap(matriz_distancias, caminho_inicial, custo_inicial, false)
     dois_opt(matriz_distancias, caminho_inicial, custo_inicial, true)
     dois_opt(matriz_distancias, caminho_inicial, custo_inicial, false)
 end
