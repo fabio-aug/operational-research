@@ -41,7 +41,7 @@ def ler_coordenadas(num_vertices, arquivo):
 
     return matriz_montagem
 
-def vizinho_mais_proximo(matriz):
+def grasp(matriz, alfa):
     # Temporizador
     start = timeit.default_timer()
 
@@ -57,27 +57,34 @@ def vizinho_mais_proximo(matriz):
     caminho = [atual]
 
     while nos != []:
-        minimo = sys.maxsize
-        indice_min = -1
-        for j in nos:
-            if  matriz[atual][j] != 0 and matriz[atual][j] < minimo:
-                minimo = matriz[atual][j]
-                indice_min = j
+        # Vizinhos do nó atual: tupla (vizinho J, custo distância até J)
+        vizinhos = [(j, matriz[atual][j]) for j in nos if matriz[atual][j] != 0]
+        # Ordena os vizinhos pelo menor custo
+        vizinhos = sorted(vizinhos, key=lambda x: x[1])
 
-        if indice_min != -1:
-            atual = indice_min
-            custo += minimo
-            caminho.append(indice_min)
+        # lrc
+        primeiro_vizinho = vizinhos[0][1]
+        ultimos_vizinho = vizinhos[len(vizinhos) - 1][1]
+        lrc = primeiro_vizinho + (alfa * (ultimos_vizinho - primeiro_vizinho))
 
-            nos_visitados.append(indice_min)
-            nos.remove(indice_min)
-    
+        # vizinhos lrc
+        vizinhos_lrc = [tupla[0] for tupla in vizinhos if tupla[1] <= lrc]
+
+        proximo_no = random.choice(vizinhos_lrc)
+
+        # Atualiza o caminho, custo e nós visitados
+        custo += matriz[atual][proximo_no]
+        caminho.append(proximo_no)
+        nos_visitados.append(proximo_no)
+        nos.remove(proximo_no)
+        atual = proximo_no
+
     custo += matriz[atual][inicial]
     caminho.append(inicial)
 
     # print_resultado(start, caminho, custo)
 
-    return (custo, caminho)
+    return (caminho, custo)
 
 def dois_opt(custo, caminho, matriz):
     start = timeit.default_timer()
@@ -109,10 +116,11 @@ def dois_opt(custo, caminho, matriz):
 
 def multistart_aleatorio(num_vertices, matriz):
     start = timeit.default_timer()
-    num_solucoes = max(1, num_vertices // 5)
+    div = num_vertices // 5
+    num_solucoes = div if div <= 20 else 20
     melhor_caminho = None
     melhor_custo = float('inf')
-    
+
     for _ in range(num_solucoes):
         # Cria caminho aleatorio com o inicio e fim 0
         caminho_aleatorio = [0]
@@ -126,12 +134,36 @@ def multistart_aleatorio(num_vertices, matriz):
 
         # Otimiza o caminho com 2opt
         caminho_otimizado, custo_otimizado = dois_opt(cusro_aleatorio, caminho_aleatorio, matriz)
-        
+
         if custo_otimizado < melhor_custo:
             melhor_caminho = caminho_otimizado
             melhor_custo = custo_otimizado
-    
+
     print("Melhor solução encontrada com MultiStart Aleatório:")
+    print_resultado(start, melhor_caminho, melhor_custo)
+
+    return melhor_caminho, melhor_custo
+
+def multistart_grasp(matriz):
+    start = timeit.default_timer()
+    melhor_caminho = None
+    melhor_custo = float('inf')
+
+    for i in range(11):
+        # Valor de alpha para o Grasp
+        alpha = i/10
+
+        # Cria o caminho com o Grasp
+        caminho_grasp, custo_grasp = grasp(matriz, alpha)
+
+        # Otimiza o caminho com 2opt
+        caminho_otimizado, custo_otimizado = dois_opt(custo_grasp, caminho_grasp, matriz)
+
+        if custo_otimizado < melhor_custo:
+            melhor_caminho = caminho_otimizado
+            melhor_custo = custo_otimizado
+
+    print("Melhor solução encontrada com MultiStart Grasp:")
     print_resultado(start, melhor_caminho, melhor_custo)
 
     return melhor_caminho, melhor_custo
@@ -150,6 +182,5 @@ for arquivo in arquivos:
         matriz_distancias = ler_coordenadas(num_vertices, file)
 
         print(f"Arquivo: {arquivo} ----------------------------------")
-        """ (custo, caminho) = vizinho_mais_proximo(matriz_distancias)
-        (custo, caminho) = dois_opt(custo, caminho, matriz_distancias) """
         (custo, caminho) = multistart_aleatorio(num_vertices, matriz_distancias)
+        (custo, caminho) = multistart_grasp(matriz_distancias)
