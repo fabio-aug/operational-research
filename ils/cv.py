@@ -9,8 +9,7 @@ arquivos = sorted([f for f in os.listdir(caminho_pasta)
                   if os.path.isfile(os.path.join(caminho_pasta, f))])
 arquivos.remove("cv.py")
 
-
-def print_resultado(start, caminho, custo):
+def print_resultado(start, caminho, custo, matriz):
     print(f"Custo: {custo:.3f}")
     tempo = timeit.default_timer() - start
     horas = int(tempo // 3600)
@@ -18,7 +17,6 @@ def print_resultado(start, caminho, custo):
     segundos = tempo % 60
     print(f"Tempo decorrido: {horas}h {minutos}m {segundos:.3f}s")
     print()
-
 
 def ler_coordenadas(num_vertices, arquivo):
     coordenadas = []
@@ -135,7 +133,9 @@ def swap(custo, caminho, matriz):
                 novo_custo = custo_atual - custo_removido + custo_adicionado
 
                 if novo_custo < custo_atual:
-                    caminho_atual[i], caminho_atual[j] = caminho_atual[j], caminho_atual[i]
+                    aux = caminho_atual[i]
+                    caminho_atual[i] = caminho_atual[j]
+                    caminho_atual[j] = aux
                     custo_atual = novo_custo
                     melhorou = True
                     break
@@ -192,70 +192,54 @@ def vnd(custo, caminho, matriz):
 
     return (caminho, custo)
 
-def vns(custo, caminho, matriz):
-    vizinhanca_pertubada = [random.randint(0, 2), random.randint(0, 2), random.randint(0, 2)]
+def pertubacao(custo, caminho, matriz):
+    vizinhanca_pertubada = [random.randint(0, 1), random.randint(0, 1)]
 
     novo_caminho = caminho.copy()
     novo_custo = custo
 
     for vizinhanca in vizinhanca_pertubada:
-        i = random.randint(1, len(matriz[0]) - 2)
-        j = random.randint(i + 1, len(matriz[0]) - 1)
 
         # dois_opt
         if (vizinhanca == 0):
-            custo_removido = matriz[caminho[i-1], caminho[i]
-                                    ] + matriz[caminho[j], caminho[j+1]]
-            custo_adicionado = matriz[caminho[i-1],
-                                      caminho[j]] + matriz[caminho[i], caminho[j+1]]
-            novo_custo = custo - custo_removido + custo_adicionado
+            i = random.randint(1, len(matriz[0]) - 2)
+            j = random.randint(i + 1, len(matriz[0]) - 1)
+            custo_removido = matriz[novo_caminho[i-1], novo_caminho[i]
+                                    ] + matriz[novo_caminho[j], novo_caminho[j+1]]
+            custo_adicionado = matriz[novo_caminho[i-1],
+                                      novo_caminho[j]] + matriz[novo_caminho[i], novo_caminho[j+1]]
+            novo_custo = novo_custo - custo_removido + custo_adicionado
 
-            novo_caminho = caminho[:i] + caminho[i:j+1][::-1] + caminho[j+1:]
-        # swap
-        elif vizinhanca == 1:
-            custo_removido = (matriz[caminho[i]][caminho[i - 1]] +
-                              matriz[caminho[i]][caminho[i + 1]] +
-                              matriz[caminho[j]][caminho[j - 1]] +
-                              matriz[caminho[j]][caminho[j + 1]])
-            custo_adicionado = (matriz[caminho[j]][caminho[i - 1]] +
-                                matriz[caminho[j]][caminho[i + 1]] +
-                                matriz[caminho[i]][caminho[j + 1]] +
-                                matriz[caminho[i]][caminho[j - 1]])
-            novo_custo = custo - custo_removido + custo_adicionado
-
-            novo_caminho = caminho.copy()
-            novo_caminho[i], novo_caminho[j] = novo_caminho[j], novo_caminho[i]
-        # shift
+            novo_caminho = novo_caminho[:i] + novo_caminho[i:j+1][::-1] + novo_caminho[j+1:]
         else:
-            custo_removido = (matriz[caminho[i - 1]][caminho[i]] +
-                              matriz[caminho[i]][caminho[i + 1]] +
-                              matriz[caminho[j]][caminho[j + 1]])
-            custo_adicionado = (matriz[caminho[i - 1]][caminho[i + 1]] +
-                                matriz[caminho[j]][caminho[i]] +
-                                matriz[caminho[i]][caminho[j + 1]])
-            novo_custo = custo - custo_removido + custo_adicionado
+            i = random.randint(1, len(matriz[0]) - 2)
+            j = random.randint(i + 1, len(matriz[0]) - 1)
+            custo_removido = (matriz[novo_caminho[i - 1]][novo_caminho[i]] +
+                              matriz[novo_caminho[i]][novo_caminho[i + 1]] +
+                              matriz[novo_caminho[j]][novo_caminho[j + 1]])
+            custo_adicionado = (matriz[novo_caminho[i - 1]][novo_caminho[i + 1]] +
+                                matriz[novo_caminho[j]][novo_caminho[i]] +
+                                matriz[novo_caminho[i]][novo_caminho[j + 1]])
+            novo_custo = novo_custo - custo_removido + custo_adicionado
 
-            novo_caminho = caminho.copy()
             novo_caminho.insert(j, novo_caminho.pop(i))
         
     return (novo_caminho, novo_custo)
 
-def grasp_vnd_ils(matriz):
+def grasp_pertubacao_ils(matriz):
     start = timeit.default_timer()
 
     caminho, custo = grasp(matriz, 0.3)
     caminho_estrela, custo_estrela = caminho.copy(), custo
 
     qtd_sem_melhoria = 0
-    temperatura = 10
+    temperatura = 1000
 
-    while qtd_sem_melhoria < 10:
-        novo_caminho, novo_custo = vns(custo, caminho, matriz)
+    while qtd_sem_melhoria < 10 or temperatura > 100:
+        novo_caminho, novo_custo = pertubacao(custo, caminho, matriz)
         caminho_otimizado, custo_otimizado = vnd(novo_custo, novo_caminho, matriz)
-
-        # VALORES MUITO PEQUENOS DE TEMPERATURA PODEM CAUSAR ERRO DE ARREDONDAMENTO E OVERFLOW
-        calculo_temperatura = math.exp(((custo_otimizado - custo) / temperatura))
-
+        calculo_temperatura = math.exp(((-1 * (custo_otimizado - custo)) / temperatura))
+        
         if custo_otimizado < custo:
             caminho, custo = caminho_otimizado, custo_otimizado
             if custo < custo_estrela:
@@ -266,14 +250,13 @@ def grasp_vnd_ils(matriz):
         else:
             qtd_sem_melhoria += 1
         
-        # VALORES MUITO PEQUENOS DE TEMPERATURA PODEM CAUSAR ERRO DE ARREDONDAMENTO
         aux_temperatura = temperatura * 0.95
         temperatura = aux_temperatura if aux_temperatura > 1 else 1
 
     if custo < custo_estrela:
         caminho_estrela, custo_estrela = caminho.copy(), custo
 
-    print_resultado(start, caminho_estrela, custo_estrela)
+    print_resultado(start, caminho_estrela, custo_estrela, matriz)
     return (caminho, custo)
 
 
@@ -291,4 +274,4 @@ for arquivo in arquivos:
         matriz_distancias = ler_coordenadas(num_vertices, file)
 
         print(f"Arquivo: {arquivo} ----------------------------------")
-        (custo, caminho) = grasp_vnd_ils(matriz_distancias)
+        (custo, caminho) = grasp_pertubacao_ils(matriz_distancias)
