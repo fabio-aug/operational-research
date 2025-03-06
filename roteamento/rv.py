@@ -21,6 +21,7 @@ def print_resultado(start, rota, custo, melhor_custo):
     minutos = int((tempo % 3600) // 60)
     segundos = tempo % 60
     print(f"Tempo decorrido: {horas}h {minutos}m {segundos:.3f}s")
+    # print(f"Rota {rota}")
     print()
 
 def ler_arquivo(arquivo):
@@ -95,7 +96,7 @@ def grasp(capacidade_veiculo, matriz, demandas, alfa):
             if matriz[atual][j] != 0 and capacidade_atual >= demandas[j - 1]['demanda']:
                 vizinhos.append((j, matriz[atual][j]))
         
-        # Caso não exista vizinhos volta para a origem
+        # Caso não exista vizinhos volta para ponto_a origem
         if not vizinhos:
             rota_atual.append(inicial)
             custo_total += matriz[atual][inicial]
@@ -254,22 +255,76 @@ def vnd(rotas, custo, matriz):
     
     return (rotas, custo_otimo)
 
-def grasp_vnd(melhor_solucao, capacidade_veiculo, matriz, demandas):
+def pertubacao(rotas, custo, matriz, demandas):
+    custo_total = custo
+    
+    for i in range(len(rotas) - 1):
+        for j in range(i + 1, len(rotas)):
+            rota1, rota2 = rotas[i]['rota'], rotas[j]['rota']
+            capacidade1, capacidade2 = rotas[i]['capacidade'], rotas[j]['capacidade']
+            
+            for ponto_a in range(1, len(rota1) - 1):
+                for ponto_b in range(1, len(rota2) - 1):
+                    demanda_a, demanda_b = demandas[rota1[ponto_a] - 1]['demanda'], demandas[rota2[ponto_b] - 1]['demanda']
+
+                    if capacidade1 - demanda_a + demanda_b >= 0 and capacidade2 - demanda_b + demanda_a >= 0:
+                        custoRemover = (
+                            matriz[rota1[ponto_a - 1]][rota1[ponto_a]] + matriz[rota1[ponto_a]][rota1[ponto_a + 1]] +
+                            matriz[rota2[ponto_b - 1]][rota2[ponto_b]] + matriz[rota2[ponto_b]][rota2[ponto_b + 1]]
+                        )
+                        custoAdicionar = (
+                            matriz[rota1[ponto_a - 1]][rota2[ponto_b]] + matriz[rota2[ponto_b]][rota1[ponto_a + 1]] +
+                            matriz[rota2[ponto_b - 1]][rota1[ponto_a]] + matriz[rota1[ponto_a]][rota2[ponto_b + 1]]
+                        )
+                        novo_custo = custo_total - custoRemover + custoAdicionar
+                        
+                        if novo_custo >= 0 and novo_custo < custo_total:
+                            rotas[i]['rota'][ponto_a], rotas[j]['rota'][ponto_b] = rotas[j]['rota'][ponto_b], rotas[i]['rota'][ponto_a]
+                            rotas[i]['capacidade'], rotas[j]['capacidade'] = capacidade1 - demanda_a + demanda_b, capacidade2 - demanda_b + demanda_a
+                            custo_total = novo_custo
+    
+    return rotas, custo_total
+
+def resolver(melhor_solucao, capacidade_veiculo, matriz, demandas):
     start = timeit.default_timer()
-    melhor_rota = None
-    melhor_custo = float('inf')
 
     alpha = 0.3
-    rotas_grasp, custo_grasp = grasp(capacidade_veiculo, matriz, demandas, alpha)
-    rotas_otimizado, custo_otimizado = vnd(rotas_grasp, custo_grasp, matriz)
+    caminho, custo = grasp(capacidade_veiculo, matriz, demandas, alpha)
+    caminho_estrela, custo_estrela = caminho.copy(), custo
 
-    if custo_otimizado < melhor_custo:
-        melhor_rota, melhor_custo = rotas_otimizado, custo_otimizado
+    qtd_sem_melhoria = 0
+    max_sem_melhoria = 100
+    temperatura = 1000
 
-    print_resultado(start, melhor_rota, melhor_custo, melhor_solucao)
+    while qtd_sem_melhoria < max_sem_melhoria or temperatura > 100:
+        novo_caminho, novo_custo = pertubacao(caminho, custo, matriz, demandas)
+        caminho_otimizado, custo_otimizado = vnd(novo_caminho, novo_custo, matriz)
+
+        valor_expo = ((-1 * (custo_otimizado - custo)) / temperatura)
+        if valor_expo > 700:
+            qtd_sem_melhoria += 1
+        else:
+            calculo_temperatura = math.exp(valor_expo)
+            if custo_otimizado < custo:
+                caminho, custo = caminho_otimizado, custo_otimizado
+                if custo < custo_estrela:
+                    caminho_estrela, custo_estrela = caminho.copy(), custo
+            elif calculo_temperatura > random.random():
+                caminho, custo = caminho_otimizado, custo_otimizado
+                qtd_sem_melhoria += 1
+            else:
+                qtd_sem_melhoria += 1
+        
+        aux_temperatura = temperatura * 0.95
+        temperatura = aux_temperatura if aux_temperatura > 1 else 1
+
+    if custo < custo_estrela:
+        caminho_estrela, custo_estrela = caminho.copy(), custo
+
+    print_resultado(start, caminho_estrela, custo_estrela, melhor_solucao)
 
 for arquivo in arquivos:
     with open(f"{caminho_pasta}{arquivo}", 'r') as file:
         print(f"Arquivo: {arquivo} ----------------------------------")
         (melhor_solucao, capacidade_veiculo, matriz, demandas) = ler_arquivo(file)
-        grasp_vnd(melhor_solucao, capacidade_veiculo, matriz, demandas)
+        resolver(melhor_solucao, capacidade_veiculo, matriz, demandas)
