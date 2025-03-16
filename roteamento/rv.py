@@ -258,30 +258,31 @@ def vnd(rotas, custo, matriz):
 def pertubacao(rotas, custo, matriz, demandas):
     custo_total = custo
     
-    for i in range(len(rotas) - 1):
-        for j in range(i + 1, len(rotas)):
-            rota1, rota2 = rotas[i]['rota'], rotas[j]['rota']
-            capacidade1, capacidade2 = rotas[i]['capacidade'], rotas[j]['capacidade']
-            
-            for ponto_a in range(1, len(rota1) - 1):
-                for ponto_b in range(1, len(rota2) - 1):
-                    demanda_a, demanda_b = demandas[rota1[ponto_a] - 1]['demanda'], demandas[rota2[ponto_b] - 1]['demanda']
+    for _ in range(int(len(rotas) / 2)):
+        i = random.randint(1, len(rotas) - 2)
+        j = random.randint(i + 1, len(rotas) - 1)
+        rota1, rota2 = rotas[i]['rota'], rotas[j]['rota']
+        capacidade1, capacidade2 = rotas[i]['capacidade'], rotas[j]['capacidade']
+        
+        for ponto_a in range(1, len(rota1) - 1):
+            for ponto_b in range(1, len(rota2) - 1):
+                demanda_a, demanda_b = demandas[rota1[ponto_a] - 1]['demanda'], demandas[rota2[ponto_b] - 1]['demanda']
 
-                    if capacidade1 - demanda_a + demanda_b >= 0 and capacidade2 - demanda_b + demanda_a >= 0:
-                        custoRemover = (
-                            matriz[rota1[ponto_a - 1]][rota1[ponto_a]] + matriz[rota1[ponto_a]][rota1[ponto_a + 1]] +
-                            matriz[rota2[ponto_b - 1]][rota2[ponto_b]] + matriz[rota2[ponto_b]][rota2[ponto_b + 1]]
-                        )
-                        custoAdicionar = (
-                            matriz[rota1[ponto_a - 1]][rota2[ponto_b]] + matriz[rota2[ponto_b]][rota1[ponto_a + 1]] +
-                            matriz[rota2[ponto_b - 1]][rota1[ponto_a]] + matriz[rota1[ponto_a]][rota2[ponto_b + 1]]
-                        )
-                        novo_custo = custo_total - custoRemover + custoAdicionar
-                        
-                        if novo_custo >= 0 and novo_custo < custo_total:
-                            rotas[i]['rota'][ponto_a], rotas[j]['rota'][ponto_b] = rotas[j]['rota'][ponto_b], rotas[i]['rota'][ponto_a]
-                            rotas[i]['capacidade'], rotas[j]['capacidade'] = capacidade1 - demanda_a + demanda_b, capacidade2 - demanda_b + demanda_a
-                            custo_total = novo_custo
+                if capacidade1 - demanda_a + demanda_b >= 0 and capacidade2 - demanda_b + demanda_a >= 0:
+                    custoRemover = (
+                        matriz[rota1[ponto_a - 1]][rota1[ponto_a]] + matriz[rota1[ponto_a]][rota1[ponto_a + 1]] +
+                        matriz[rota2[ponto_b - 1]][rota2[ponto_b]] + matriz[rota2[ponto_b]][rota2[ponto_b + 1]]
+                    )
+                    custoAdicionar = (
+                        matriz[rota1[ponto_a - 1]][rota2[ponto_b]] + matriz[rota2[ponto_b]][rota1[ponto_a + 1]] +
+                        matriz[rota2[ponto_b - 1]][rota1[ponto_a]] + matriz[rota1[ponto_a]][rota2[ponto_b + 1]]
+                    )
+                    novo_custo = custo_total - custoRemover + custoAdicionar
+                    
+                    if novo_custo >= 0 and novo_custo < custo_total:
+                        rotas[i]['rota'][ponto_a], rotas[j]['rota'][ponto_b] = rotas[j]['rota'][ponto_b], rotas[i]['rota'][ponto_a]
+                        rotas[i]['capacidade'], rotas[j]['capacidade'] = capacidade1 - demanda_a + demanda_b, capacidade2 - demanda_b + demanda_a
+                        custo_total = novo_custo
     
     return rotas, custo_total
 
