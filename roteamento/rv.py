@@ -343,12 +343,12 @@ def resolver(melhor_solucao, capacidade_veiculo, matriz, demandas):
     max_sem_melhoria = 100  # Número máximo de iterações sem melhoria antes de parar
     temperatura = 1000  # Parâmetro do simulated annealing para aceitar soluções piores
 
-    # Loop principal de busca de soluções melhores
     while qtd_sem_melhoria < max_sem_melhoria or temperatura > 100:
         # Realiza uma perturbação na solução atual para explorar novas possibilidades
         novo_caminho, novo_custo = pertubacao(caminho, custo, matriz, demandas)
 
         # Aplica a busca local VND (Variable Neighborhood Descent) na solução perturbada
+        # Otimiza cada uma das rotas geradas
         caminho_otimizado, custo_otimizado = vnd(novo_caminho, novo_custo, matriz)
 
         # Calcula a variação do custo normalizada pela temperatura (Simulated Annealing)
@@ -374,7 +374,7 @@ def resolver(melhor_solucao, capacidade_veiculo, matriz, demandas):
                 qtd_sem_melhoria += 1  # Conta a iteração sem melhoria
 
         # Diminui a temperatura para reduzir a aceitação de soluções piores ao longo das iterações
-        aux_temperatura = temperatura * 0.95  # Multiplica a temperatura por 0.95
+        aux_temperatura = temperatura * 0.95  # Reduz a temperatura em 5%
         temperatura = aux_temperatura if aux_temperatura > 1 else 1  # Garante que não seja menor que 1
 
     # Após o término do loop, verifica se a última solução encontrada foi a melhor
